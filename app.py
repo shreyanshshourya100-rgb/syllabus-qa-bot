@@ -15,6 +15,7 @@ client = OpenAI(
 MODEL_NAME = "openai/gpt-oss-120b"
 
 SYLLABUS_DIR = "syllabuses"
+GENERAL_KNOWLEDGE = "General Knowledge"
 
 def load_syllabuses():
     files = glob.glob(f"{SYLLABUS_DIR}/*.txt")
@@ -26,9 +27,9 @@ def load_syllabuses():
     return syllabuses
 
 syllabuses = load_syllabuses()
-course_names = sorted(syllabuses.keys())
+course_names = [GENERAL_KNOWLEDGE] + sorted(syllabuses.keys())
 
-def ask_question(syllabus_text: str, question: str, history: list) -> dict:
+def ask_syllabus_question(syllabus_text: str, question: str, history: list) -> dict:
     system_prompt = """You are "Syllabus Q&A Assistant", a study helper for students, built to answer questions about their specific course. You are not ChatGPT, GPT, or made by OpenAI -- if asked who made you or what you are, describe yourself only as the Syllabus Q&A Assistant, a tool that helps students study using their syllabus and general knowledge. Do not mention OpenAI, Groq, or any underlying AI company or model name.
 
 You will be given a syllabus, the recent conversation, and a student's new question.
@@ -71,6 +72,22 @@ Rules:
 
     return result
 
+def ask_general_question(question: str, history: list) -> str:
+    system_prompt = """You are "Syllabus Q&A Assistant", operating right now in General Knowledge mode -- a normal, helpful AI assistant with no restrictions to any specific syllabus. Answer any question directly and helpfully, using the recent conversation for context on follow-ups. You are not ChatGPT, GPT, or made by OpenAI -- if asked who made you, describe yourself only as the Syllabus Q&A Assistant. Do not mention OpenAI, Groq, or any underlying AI company or model name. Decline only harmful, unsafe, or clearly inappropriate requests."""
+
+    messages = [{"role": "system", "content": system_prompt}]
+    for msg in history[-10:]:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+    messages.append({"role": "user", "content": question})
+
+    response = client.chat.completions.create(
+        model=MODEL_NAME,
+        max_tokens=900,
+        messages=messages
+    )
+
+    return response.choices[0].message.content.strip()
+
 def format_content(text: str) -> str:
     text = text.replace("\n", "<br>")
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
@@ -95,6 +112,7 @@ footer {visibility: hidden;}
 .bubble.user {background: #6C63FF; color: white; border-radius: 16px 16px 4px 16px; order: 1;}
 .bubble.covered {background: #E8F8EE; color: #1E6B3B; border: 1px solid #A8E6C1; border-radius: 16px 16px 16px 4px;}
 .bubble.not-covered {background: #FDEAEA; color: #B3261E; border: 1px solid #F5B5B0; border-radius: 16px 16px 16px 4px;}
+.bubble.general {background: #F0F1FF; color: #1E1E2E; border: 1px solid #DCDCFF; border-radius: 16px 16px 16px 4px;}
 .status-label {display: block; font-weight: 700; margin-bottom: 6px;}
 section[data-testid="stSidebar"] {background: #FFFFFF; border-right: 1px solid #EEEEF2;}
 
@@ -102,9 +120,8 @@ section[data-testid="stSidebar"] {background: #FFFFFF; border-right: 1px solid #
 .welcome-title h1 {font-size:32px; color:#1E1E2E; margin-bottom:4px;}
 .welcome-title p {color:#8A8A9E; font-size:15px;}
 
-div[data-testid="stButton"] > button.course-card {
-    width: 100%;
-    height: 110px;
+div[data-testid="stButton"] > button {
+    height: 100px;
     border-radius: 16px;
     border: 1px solid #EAEAF2;
     background: #FFFFFF;
@@ -114,7 +131,7 @@ div[data-testid="stButton"] > button.course-card {
     box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     transition: all 0.15s ease-in-out;
 }
-div[data-testid="stButton"] > button.course-card:hover {
+div[data-testid="stButton"] > button:hover {
     border: 1px solid #6C63FF;
     background: #F5F4FF;
     color: #6C63FF;
@@ -134,7 +151,7 @@ def pick_course(name):
 
 with st.sidebar:
     st.markdown("### 📚 Syllabus Q&A")
-    st.caption("Ask questions from your course syllabus, or anything else.")
+    st.caption("Ask questions from your course syllabus, or switch to General Knowledge mode.")
     st.markdown("---")
     if st.session_state.selected_course:
         idx = course_names.index(st.session_state.selected_course)
@@ -145,6 +162,7 @@ with st.sidebar:
         st.session_state.selected_course = sidebar_choice
         st.rerun()
     st.markdown("---")
+    st.caption("More pages (Blog, About) appear here automatically once added to the pages/ folder.")
 
 selected_course = st.session_state.selected_course
 
@@ -159,46 +177,23 @@ if not selected_course:
 
     cols = st.columns(3)
     for i, name in enumerate(course_names):
+        icon = "🌐" if name == GENERAL_KNOWLEDGE else "📘"
         with cols[i % 3]:
-            clicked = st.button(f"📘  {name}", key=f"course_btn_{name}", use_container_width=True)
-            st.markdown(f"""
-            <script>
-            </script>
-            """, unsafe_allow_html=True)
+            clicked = st.button(f"{icon}  {name}", key=f"course_btn_{name}", use_container_width=True)
             if clicked:
                 pick_course(name)
                 st.rerun()
 
-    st.markdown("""
-    <style>
-    div[data-testid="stButton"] > button {
-        height: 100px;
-        border-radius: 16px;
-        border: 1px solid #EAEAF2;
-        background: #FFFFFF;
-        color: #1E1E2E;
-        font-size: 16px;
-        font-weight: 600;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-        transition: all 0.15s ease-in-out;
-    }
-    div[data-testid="stButton"] > button:hover {
-        border: 1px solid #6C63FF;
-        background: #F5F4FF;
-        color: #6C63FF;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(108,99,255,0.15);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
     st.stop()
 
 # ---------- CHAT SCREEN ----------
+is_general = selected_course == GENERAL_KNOWLEDGE
+subtitle = "Ask me anything — no syllabus restrictions here." if is_general else "Green = in your syllabus. Red = outside your syllabus."
+
 st.markdown(f"""
 <div class="app-header">
-    <h1>{selected_course}</h1>
-    <p>Green = in your syllabus. Red = outside your syllabus.</p>
+    <h1>{"🌐 " if is_general else ""}{selected_course}</h1>
+    <p>{subtitle}</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -219,11 +214,14 @@ for msg in st.session_state.chat_history[selected_course]:
         bubble_class = "bubble user"
         content = format_content(msg["content"])
     else:
-        bubble_class = "bubble covered" if covered else "bubble not-covered"
         content = format_content(msg["content"])
-        if covered:
+        if is_general:
+            bubble_class = "bubble general"
+        elif covered:
+            bubble_class = "bubble covered"
             content = f'<span class="status-label">✅ Yes, this is in your syllabus</span>{content}'
         else:
+            bubble_class = "bubble not-covered"
             content = f'<span class="status-label">❌ No, this is not in your syllabus</span>{content}'
 
     row_html = f'<div class="bubble-row {role}"><div class="{avatar_class}">{avatar}</div><div class="{bubble_class}">{content}</div></div>'
@@ -239,17 +237,21 @@ if question:
         {"role": "user", "content": question, "covered": True}
     )
 
-    result = ask_question(
-        syllabuses[selected_course],
-        question,
-        st.session_state.chat_history[selected_course]
-    )
-
-    reply = result.get("answer", "Sorry, something went wrong.")
-    in_syllabus = result.get("in_syllabus", True)
-
-    st.session_state.chat_history[selected_course].append(
-        {"role": "assistant", "content": reply, "covered": in_syllabus}
-    )
+    if is_general:
+        answer = ask_general_question(question, st.session_state.chat_history[selected_course])
+        st.session_state.chat_history[selected_course].append(
+            {"role": "assistant", "content": answer, "covered": True}
+        )
+    else:
+        result = ask_syllabus_question(
+            syllabuses[selected_course],
+            question,
+            st.session_state.chat_history[selected_course]
+        )
+        reply = result.get("answer", "Sorry, something went wrong.")
+        in_syllabus = result.get("in_syllabus", True)
+        st.session_state.chat_history[selected_course].append(
+            {"role": "assistant", "content": reply, "covered": in_syllabus}
+        )
 
     st.rerun()
