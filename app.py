@@ -146,22 +146,6 @@ if "selected_course" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = {}
 
-def pick_course(name):
-    st.session_state.selected_course = name
-
-with st.sidebar:
-    st.markdown("### 📚 Syllabus Q&A")
-    st.caption("Ask questions from your course syllabus, or switch to General Knowledge mode.")
-    st.markdown("---")
-    if st.session_state.selected_course:
-        idx = course_names.index(st.session_state.selected_course)
-    else:
-        idx = None
-    sidebar_choice = st.selectbox("Switch course", course_names, index=idx, placeholder="Choose your course...")
-    if sidebar_choice and sidebar_choice != st.session_state.selected_course:
-        st.session_state.selected_course = sidebar_choice
-        st.rerun()
-    st.markdown("---")
 with st.sidebar:
     st.markdown("### 📚 Syllabus Q&A")
     st.caption("Ask questions from your course syllabus, or switch to General Knowledge mode.")
@@ -177,7 +161,6 @@ with st.sidebar:
 
 selected_course = st.session_state.selected_course
 
-# ---------- WELCOME / COURSE PICKER SCREEN ----------
 if not selected_course:
     st.markdown("""
     <div class="welcome-title">
@@ -192,12 +175,11 @@ if not selected_course:
         with cols[i % 3]:
             clicked = st.button(f"{icon}  {name}", key=f"course_btn_{name}", use_container_width=True)
             if clicked:
-                pick_course(name)
+                st.session_state.selected_course = name
                 st.rerun()
 
     st.stop()
 
-# ---------- CHAT SCREEN ----------
 is_general = selected_course == GENERAL_KNOWLEDGE
 subtitle = "Ask me anything — no syllabus restrictions here." if is_general else "Green = in your syllabus. Red = outside your syllabus."
 
