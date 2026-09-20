@@ -162,7 +162,18 @@ with st.sidebar:
         st.session_state.selected_course = sidebar_choice
         st.rerun()
     st.markdown("---")
-    st.caption("More pages (Blog, About) appear here automatically once added to the pages/ folder.")
+with st.sidebar:
+    st.markdown("### 📚 Syllabus Q&A")
+    st.caption("Ask questions from your course syllabus, or switch to General Knowledge mode.")
+    st.markdown("---")
+    if st.session_state.selected_course:
+        idx = course_names.index(st.session_state.selected_course)
+    else:
+        idx = None
+    sidebar_choice = st.selectbox("Switch course", course_names, index=idx, placeholder="Choose your course...")
+    if sidebar_choice and sidebar_choice != st.session_state.selected_course:
+        st.session_state.selected_course = sidebar_choice
+        st.rerun()
 
 selected_course = st.session_state.selected_course
 
