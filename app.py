@@ -1,19 +1,21 @@
 import os
+import json
+import glob
 import streamlit as st
 from openai import OpenAI
-from dotenv import load_dotenv
 
-load_dotenv()
+# ---------- PAGE CONFIG (must be first Streamlit command) ----------
+st.set_page_config(page_title="Syllabus Q&A", page_icon="📚", layout="centered")
 
+# ---------- CLIENT SETUP ----------
 client = OpenAI(
-    api_key=os.environ["GROQ_API_KEY"],
+    api_key=st.secrets["GROQ_API_KEY"],
     base_url="https://api.groq.com/openai/v1"
 )
 
 MODEL_NAME = "openai/gpt-oss-120b"
 
-import glob
-
+# ---------- LOAD SYLLABUSES ----------
 SYLLABUS_DIR = "syllabuses"
 
 def load_syllabuses():
@@ -27,8 +29,7 @@ def load_syllabuses():
 
 syllabuses = load_syllabuses()
 
-import json
-
+# ---------- CORE Q&A FUNCTION ----------
 def ask_question(syllabus_text: str, question: str) -> dict:
     system_prompt = """You are a course assistant. You will be given a syllabus and a student's question.
 
@@ -68,9 +69,24 @@ Rules:
 
     return result
 
-
-
+# ---------- UI ----------
 st.title("📚 Syllabus Q&A Assistant")
+
+st.markdown("""
+<style>
+.stChatMessage {
+    border-radius: 12px;
+    padding: 12px;
+}
+h1 {
+    font-family: 'Georgia', serif;
+    color: #2E7D32;
+}
+.stTextInput input, .stChatInput textarea {
+    border-radius: 8px;
+}
+</style>
+""", unsafe_allow_html=True)
 
 course_names = list(syllabuses.keys())
 selected_course = st.selectbox("Select your course:", course_names)
